@@ -1,0 +1,1160 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel dos Braços</title>
+<style>
+  :root {
+    --bg: #f3f4f6; --panel: #ffffff; --line: #d9dce1; --text: #1b1f27; --muted: #667085;
+    --accent: #1f6feb; --accent-text: #ffffff; --ok: #1a7f4b; --warn: #b26a00; --err: #c62828;
+    --btn: #eef0f4; --btn-hover: #e1e5ec; --track: #e4e7ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151a; --panel: #1b2027; --line: #2d343e; --text: #e8ebf0; --muted: #9aa4b2;
+      --accent: #4c8dff; --accent-text: #0b1220; --ok: #4cc38a; --warn: #f0b04a; --err: #ff6b6b;
+      --btn: #262d37; --btn-hover: #323b48; --track: #2b323d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+           padding: 14px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: 18px; }
+  h2 { margin: 0 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .hdr-right { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  button { font: inherit; color: var(--text); background: var(--btn); border: 1px solid var(--line);
+           border-radius: 8px; padding: 9px 14px; cursor: pointer; min-height: 40px; }
+  button:hover:not(:disabled) { background: var(--btn-hover); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  button.small { padding: 5px 10px; min-height: 32px; font-size: 13px; }
+  input[type=number], input[type=text] { font: inherit; color: var(--text); background: var(--bg);
+           border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; width: 100%; min-width: 0; }
+
+  .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+          border: 1px solid var(--line); color: var(--muted); }
+  .chip.ok { color: var(--ok); border-color: var(--ok); }
+  .chip.warn { color: var(--warn); border-color: var(--warn); animation: pulse 1s infinite; }
+  .chip.err { color: var(--err); border-color: var(--err); }
+  @keyframes pulse { 50% { opacity: .45; } }
+
+  .arms { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .arm-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .arm-head b { font-size: 17px; }
+  .host { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .arm-err { color: var(--err); font-size: 13px; min-height: 1.4em; margin: 6px 0; word-break: break-word; }
+  .pose { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .pose div, .jrow .val { font-variant-numeric: tabular-nums; }
+  .pose small { display: block; color: var(--muted); font-size: 11px; }
+  .pose span { font-size: 17px; font-weight: 600; }
+  .jrow { display: grid; grid-template-columns: 28px 64px 1fr; align-items: center; gap: 8px; font-size: 13px; }
+  .jrow .val { text-align: right; }
+  .bar { position: relative; height: 6px; background: var(--track); border-radius: 3px; margin: 7px 0; }
+  .bar i { position: absolute; top: -3px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%;
+           background: var(--accent); }
+  .bar b { position: absolute; left: 50%; top: -2px; width: 1px; height: 10px; background: var(--muted); }
+
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .lbl { min-width: 110px; color: var(--muted); font-size: 13px; }
+  .seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  .seg button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  input[type=range] { flex: 1 1 200px; max-width: 360px; accent-color: var(--accent); }
+  .speed-val { font-variant-numeric: tabular-nums; min-width: 90px; }
+
+  .jogs { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 8px; }
+  .pad { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); max-width: 330px; }
+  .pad button { min-height: 56px; font-weight: 600; font-size: 16px; display: flex; flex-direction: column;
+                align-items: center; justify-content: center; line-height: 1.1; }
+  .pad button small { font-weight: 400; font-size: 10px; color: var(--muted); }
+  .zpad { display: grid; gap: 8px; max-width: 110px; margin-top: 12px; }
+  .zpad button { min-height: 56px; font-weight: 600; font-size: 16px; display: flex; flex-direction: column;
+                 align-items: center; justify-content: center; line-height: 1.1; }
+  .zpad button small { font-weight: 400; font-size: 10px; color: var(--muted); }
+  .cart { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .jjog { display: grid; gap: 6px; max-width: 260px; }
+  .jjog div { display: grid; grid-template-columns: 1fr 48px 48px; gap: 6px; align-items: center; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+  .goto { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+  .fields label { font-size: 11px; color: var(--muted); display: block; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+
+  .log { max-height: 220px; overflow: auto; font: 12.5px/1.5 ui-monospace, Consolas, monospace; }
+  .log div { padding: 2px 0; border-bottom: 1px solid var(--line); }
+  .log .t { color: var(--muted); }
+  .log .error { color: var(--err); }
+  .log .ok { color: var(--ok); }
+
+  #toasts { position: fixed; left: 12px; right: 12px; bottom: 12px; display: grid; gap: 8px;
+            max-width: 480px; margin: 0 auto; pointer-events: none; z-index: 10; }
+  .toast { background: var(--err); color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 14px;
+           box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+  dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text);
+           padding: 20px; max-width: 360px; width: calc(100% - 32px); }
+  dialog::backdrop { background: rgba(0,0,0,.5); }
+  dialog form { display: grid; gap: 12px; }
+  .estop { color: var(--err); font-size: 12px; }
+  [hidden] { display: none !important; }
+  .twin { width: 100%; height: 420px; display: block; border: 1px solid var(--line); border-radius: 8px;
+          background: var(--bg); touch-action: none; cursor: grab; }
+  .twin:active { cursor: grabbing; }
+  .twincheck { font-size: 13px; font-variant-numeric: tabular-nums; margin-top: 10px; display: grid; gap: 4px; }
+  .tc-ok { color: var(--ok); } .tc-warn { color: var(--warn); } .tc-err { color: var(--err); }
+  .padcfg input[type=number] { width: 76px; }
+  .toast.ok { background: #1a7f4b; }
+  .padcfg { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; margin-top: 8px; }
+  .padcfg label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
+  .padcfg select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+                   border-radius: 6px; padding: 4px; }
+  .steps { margin: 0 0 12px; padding-left: 22px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .steps li { margin-bottom: 3px; word-break: break-word; }
+  .seqrow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0;
+            border-bottom: 1px solid var(--line); }
+  .seqrow b { flex: 1 1 160px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Painel dos Braços</h1>
+  <div class="hdr-right">
+    <span id="srv" class="chip">conectando…</span>
+    <button id="btnConnAll">Conectar todos</button>
+    <button id="btnDiscAll">Desconectar todos</button>
+  </div>
+</header>
+
+<main>
+  <section id="arms" class="arms"></section>
+
+  <section class="panel" id="twinPanel">
+    <h2>Gêmeo digital</h2>
+    <canvas id="twin" class="twin"></canvas>
+    <div class="row" style="margin: 10px 0 0">
+      <button id="btnTwinReset" class="small">Resetar vista</button>
+      <span class="host">arraste o fundo para girar a vista · roda ou pinça para zoom · <b>arraste um braço para mudar a posição dele na cena</b> (Shift + arrastar gira o braço) · sombra azul = destino do movimento</span>
+    </div>
+    <div id="twinCheck" class="twincheck"></div>
+    <details class="note">
+      <summary>Posição das bases na cena</summary>
+      <p>O painel não sabe onde cada robô está montado: arraste os braços no desenho, ou digite aqui, para a cena
+        ficar parecida com a bancada. Fica salvo neste navegador. Isso não altera nada no robô.</p>
+      <div id="twinBase" class="padcfg"></div>
+      <p><button id="btnBaseReset" class="small">Restaurar posições</button></p>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2>Controle</h2>
+    <div class="row"><span class="lbl">Mover</span><div id="targets" class="seg"></div></div>
+    <div class="row"><span class="lbl">Passo linear</span><div id="stepLin" class="seg"></div></div>
+    <div class="row"><span class="lbl">Passo de junta</span><div id="stepAng" class="seg"></div></div>
+    <div class="row">
+      <span class="lbl">Velocidade</span>
+      <input id="speed" type="range" step="1" value="20">
+      <span id="speedVal" class="speed-val"></span>
+    </div>
+    <div class="row">
+      <span class="lbl">Controle Xbox</span>
+      <button id="btnPad">Ligar</button>
+      <span id="padStatus" class="host"></span>
+    </div>
+    <div class="row">
+      <span class="lbl">Garra</span>
+      <span id="gripState" class="chip">aberta</span>
+      <span class="host">indicador do botão X: ainda não envia comando ao robô</span>
+    </div>
+    <details class="note" id="padHelp">
+      <summary>Como usar o controle</summary>
+      <p><b>Segure LB ou RB para mover</b> (botão de segurança). O movimento é contínuo e a velocidade segue o quanto você inclina o analógico (no controle, o máximo é 100 mm/s). Soltou, o robô para em menos de meio segundo.
+        Se a aba perder o foco, o controle é ignorado.</p>
+      <p><b>Analógicos:</b> esquerdo = J1 (←→) e J2 (↑↓); direito = J4 (←→) e J3 (↑↓).
+        <b>RT / LT</b> = J5 (+ / −). <b>D-pad ←→</b> = J6. Tudo configurável abaixo.</p>
+      <p><b>Y</b> troca de braço (cada um, depois todos). <b>A</b> grava o ponto atual na sequência em gravação.
+        <b>B</b> (com LB/RB apertado) volta à posição em que o robô estava ao conectar.
+        <b>X</b> fecha/abre a garra (indicador). <b>Back</b> alterna juntas/cartesiano.
+        <b>L3</b> (clique no analógico esquerdo) segurado = movimento lento.</p>
+      <div id="padCfg" class="padcfg"></div>
+    </details>
+
+    <div class="jogs">
+      <div>
+        <h3>Cartesiano (eixos da base de cada robô)</h3>
+        <div class="cart">
+          <div class="pad" id="padXY"></div>
+          <div class="zpad" id="padZ"></div>
+        </div>
+      </div>
+      <div>
+        <h3>Juntas</h3>
+        <div class="jjog" id="jointJog"></div>
+      </div>
+    </div>
+    <p class="note">Cada clique é um movimento. Com mais de um braço selecionado, os comandos saem ao
+      mesmo tempo. Se algum movimento for recusado, nenhum braço se move.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Ir para posição</h2>
+    <div class="row"><span class="lbl">Tipo</span><div id="gotoMode" class="seg"></div></div>
+    <div id="goto" class="goto"></div>
+    <div class="actions">
+      <button id="btnGoto" class="primary">Mover selecionados</button>
+    </div>
+  </section>
+
+  <section class="panel" id="seqPanel">
+    <h2>Sequências</h2>
+    <div id="recIdle" class="row">
+      <input id="seqName" type="text" placeholder="Nome da sequência" maxlength="60" style="max-width:260px">
+      <button id="btnRecStart">Iniciar gravação</button>
+    </div>
+    <div id="recActive" hidden>
+      <div class="row"><b id="recTitle"></b></div>
+      <ol id="recSteps" class="steps"></ol>
+      <div class="actions">
+        <button id="btnRecAdd" class="primary">Gravar ponto atual (A)</button>
+        <button id="btnRecUndo">Desfazer último</button>
+        <button id="btnRecSave">Salvar</button>
+        <button id="btnRecDiscard">Descartar</button>
+      </div>
+    </div>
+    <h3 style="margin-top:18px">Salvas</h3>
+    <div id="seqList"></div>
+    <div id="playStatus" class="row" hidden>
+      <b id="playText"></b>
+      <button id="btnPlayStop">Parar após este ponto</button>
+    </div>
+    <p class="note">Cada ponto grava as juntas dos braços selecionados e a velocidade é a do controle
+      deslizante na hora de executar. A execução usa MOVEJ: a trajetória entre pontos é por juntas, então
+      confira o caminho livre. O primeiro ponto é alcançado direto da posição atual.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Registro</h2>
+    <div id="log" class="log"></div>
+    <p class="estop">Parada de emergência: apenas o botão físico / FlexPendant. Este painel não consegue
+      interromper um movimento em andamento.</p>
+  </section>
+</main>
+
+<div id="toasts"></div>
+
+<dialog id="tokenDlg">
+  <form method="dialog" id="tokenForm">
+    <b>Token de acesso</b>
+    <span class="host">Está impresso no terminal onde o painel foi iniciado.</span>
+    <input id="tokenInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button class="primary" type="submit">Entrar</button>
+  </form>
+</dialog>
+
+<script>
+const $ = (s, root = document) => root.querySelector(s);
+const el = (tag, props = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === 'class') n.className = v;
+    else if (k === 'text') n.textContent = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  }
+  n.append(...kids);
+  return n;
+};
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+
+// O link impresso pelo servidor traz #token=...; guarda e limpa da barra de endereço
+let token = store.get('token') || '';
+const hashToken = new URLSearchParams(location.hash.slice(1)).get('token');
+if (hashToken) {
+  token = hashToken;
+  store.set('token', token);
+  history.replaceState(null, '', location.pathname);
+}
+
+async function api(path, body) {
+  const res = await fetch(path, {
+    method: body ? 'POST' : 'GET',
+    headers: { 'X-Token': token, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+    cache: 'no-store',
+  });
+  if (res.status === 401) { askToken(); throw new Error('Token inválido'); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+function askToken() {
+  const dlg = $('#tokenDlg');
+  if (!dlg.open) dlg.showModal();
+}
+$('#tokenForm').addEventListener('submit', () => {
+  token = $('#tokenInput').value.trim();
+  store.set('token', token);
+});
+
+function toast(text, kind = '') {
+  const t = el('div', { class: 'toast ' + kind, text });
+  $('#toasts').append(t);
+  setTimeout(() => t.remove(), 6000);
+}
+
+// ---------- estado ----------
+let S = null;                 // último estado do servidor
+let built = false;
+const ui = {};                // elementos por robô
+const selected = new Set();
+let stepLin = 10, stepAng = 5, gotoMode = 'linear';
+let lastLogId = null;
+let pending = false;          // pedido em andamento (evita clique duplo)
+let renderTargets = () => {}; // definido em build(); o controle de Xbox também o usa
+
+const POSE_LABELS = ['X', 'Y', 'Z', 'Rx', 'Ry', 'Rz'];
+const fmt = (v, d = 1) => (v == null ? '—' : v.toFixed(d));
+
+function build() {
+  built = true;
+  const names = S.robots.map(r => r.name);
+  names.forEach(n => selected.add(n));
+
+  // Cartões de telemetria
+  for (const r of S.robots) {
+    const u = ui[r.name] = { pose: [], joints: [] };
+    u.chip = el('span', { class: 'chip' });
+    u.btn = el('button', { class: 'small', onclick: () => toggleConnect(r.name) });
+    u.err = el('div', { class: 'arm-err' });
+    const pose = el('div', { class: 'pose' });
+    POSE_LABELS.forEach((label, i) => {
+      const v = el('span', { text: '—' });
+      u.pose.push(v);
+      pose.append(el('div', {}, el('small', { text: label + (i < 3 ? ' mm' : ' °') }), v));
+    });
+    const joints = el('div');
+    S.limits.joints.forEach((_, i) => {
+      const val = el('span', { class: 'val', text: '—' });
+      const dot = el('i');
+      u.joints.push({ val, dot });
+      joints.append(el('div', { class: 'jrow' }, el('span', { text: 'J' + (i + 1) }), val,
+        el('div', { class: 'bar' }, el('b'), dot)));
+    });
+    $('#arms').append(el('div', { class: 'panel' },
+      el('div', { class: 'arm-head' }, el('b', { text: r.name }), u.chip),
+      el('div', { class: 'arm-head' }, el('span', { class: 'host', text: `${r.host}:${r.port}` }), u.btn),
+      u.err, pose, joints));
+  }
+
+  // Alvos (quais braços recebem o comando)
+  const targets = $('#targets');
+  renderTargets = () => {
+    targets.replaceChildren(
+      ...names.map(n => el('button', { class: selected.has(n) ? 'on' : '', text: n,
+        onclick: () => { selected.has(n) ? selected.delete(n) : selected.add(n); renderTargets(); refresh(); } })),
+      ...(names.length > 1 ? [el('button', { text: 'Todos',
+        onclick: () => { names.forEach(n => selected.add(n)); renderTargets(); refresh(); } })] : []));
+  };
+  renderTargets();
+
+  const segment = (root, options, current, onPick, unit) => {
+    const render = () => root.replaceChildren(...options.map(o =>
+      el('button', { class: o === current() ? 'on' : '', text: o + (unit || ''),
+        onclick: () => { onPick(o); render(); } })));
+    render();
+  };
+  segment($('#stepLin'), [1, 5, 10, 20, 50], () => stepLin, v => stepLin = v, ' mm');
+  segment($('#stepAng'), [1, 5, 10, 20], () => stepAng, v => stepAng = v, '°');
+
+  const speed = $('#speed');
+  speed.min = S.limits.speed[0];
+  speed.max = S.limits.speed[1];
+  const showSpeed = () => $('#speedVal').textContent = `${speed.value} mm/s`;
+  speed.addEventListener('input', showSpeed);
+  showSpeed();
+
+  // Pad cartesiano: Y+ fica à esquerda quando X+ aponta para a frente (eixos da direita)
+  const jog = (label, hint, delta) => el('button', { 'data-jog': '1', onclick: () => move({ mode: 'relative', delta: delta.map(d => d * stepLin) }) },
+    label, el('small', { text: hint }));
+  const pad = $('#padXY');
+  pad.append(el('span'), jog('X+', 'frente', [1, 0, 0]), el('span'),
+             jog('Y+', 'esquerda', [0, 1, 0]), jog('X−', 'trás', [-1, 0, 0]), jog('Y−', 'direita', [0, -1, 0]));
+  $('#padZ').append(jog('Z+', 'sobe', [0, 0, 1]), jog('Z−', 'desce', [0, 0, -1]));
+
+  // Jog de juntas
+  const jj = $('#jointJog');
+  for (let j = 1; j <= 6; j++) {
+    jj.append(el('div', {}, el('span', { text: 'J' + j }),
+      el('button', { 'data-jog': '1', text: '−', onclick: () => move({ mode: 'joint_jog', joint: j, delta: -stepAng }) }),
+      el('button', { 'data-jog': '1', text: '+', onclick: () => move({ mode: 'joint_jog', joint: j, delta: stepAng }) })));
+  }
+
+  // Ir para posição: campos por robô
+  const modeRoot = $('#gotoMode');
+  const renderMode = () => modeRoot.replaceChildren(
+    ...[['linear', 'Linear (x y z rx ry rz)'], ['joints', 'Juntas (j1…j6)']].map(([m, text]) =>
+      el('button', { class: m === gotoMode ? 'on' : '', text,
+        onclick: () => { gotoMode = m; renderMode(); showGotoFields(); } })));
+  renderMode();
+  for (const r of S.robots) {
+    ui[r.name].inputs = Array.from({ length: 6 }, () => el('input', { type: 'number', step: 'any' }));
+    ui[r.name].labels = Array.from({ length: 6 }, () => el('label'));
+    const fields = el('div', { class: 'fields' });
+    ui[r.name].inputs.forEach((inp, i) => fields.append(el('div', {}, ui[r.name].labels[i], inp)));
+    ui[r.name].gotoBox = el('div', { class: 'panel' }, el('h3', { text: r.name }), fields,
+      el('button', { class: 'small', text: 'Copiar posição atual', onclick: () => copyCurrent(r.name) }));
+    $('#goto').append(ui[r.name].gotoBox);
+  }
+  showGotoFields();
+  $('#btnGoto').addEventListener('click', moveGoto);
+  $('#btnConnAll').addEventListener('click', () => connect(names));
+  $('#btnDiscAll').addEventListener('click', () => post('/api/disconnect', { robots: names }));
+  buildTwin();
+}
+
+function showGotoFields() {
+  const lin = gotoMode === 'linear';
+  for (const r of S.robots) {
+    ui[r.name].labels.forEach((l, i) => {
+      l.textContent = lin ? POSE_LABELS[i] + (i < 3 ? ' (mm)' : ' (°)') : 'J' + (i + 1) + ' (°)';
+    });
+    ui[r.name].inputs.forEach(inp => inp.value = '');
+    ui[r.name].inputs.forEach((inp, i) => {
+      if (lin && i < 3) { inp.min = S.limits.box.min[i]; inp.max = S.limits.box.max[i]; }
+      else if (!lin) { inp.min = S.limits.joints[i][0]; inp.max = S.limits.joints[i][1]; }
+      else { inp.removeAttribute('min'); inp.removeAttribute('max'); }
+    });
+  }
+}
+
+function copyCurrent(name) {
+  const r = S.robots.find(x => x.name === name);
+  const src = gotoMode === 'linear' ? r.pose : r.joints;
+  if (!src) return toast(`${name}: sem leitura da posição atual`);
+  ui[name].inputs.forEach((inp, i) => inp.value = src[i]);
+}
+
+// ---------- ações ----------
+async function post(path, body) {
+  if (pending) return;
+  pending = true; refresh();
+  let data;
+  try { data = await api(path, body); }
+  catch (e) { toast(e.message); }
+  finally { pending = false; await tick(); }
+  return data;
+}
+
+const connect = names => post('/api/connect', { robots: names });
+function toggleConnect(name) {
+  const r = S.robots.find(x => x.name === name);
+  return r.connected ? post('/api/disconnect', { robots: [name] }) : connect([name]);
+}
+
+function move(payload) {
+  const speed = Number($('#speed').value);
+  return post('/api/move', { robots: [...selected], speed, ...payload });
+}
+
+function moveGoto() {
+  const robots = [...selected];
+  const values = {};
+  for (const n of robots) {
+    const nums = ui[n].inputs.map(i => i.value.trim() === '' ? NaN : Number(i.value));
+    if (nums.some(Number.isNaN)) return toast(`${n}: preencha os 6 valores`);
+    values[n] = nums;
+  }
+  const speed = Number($('#speed').value);
+  const resumo = robots.map(n => `${n}: ${values[n].join(' ')}`).join('\n');
+  if (!confirm(`Mover a ${speed} mm/s?\n\n${resumo}`)) return;
+  return post('/api/move', { robots, speed, mode: gotoMode, values });
+}
+
+// ---------- atualização da tela ----------
+function refresh() {
+  if (!S) return;
+  const targets = S.robots.filter(r => selected.has(r.name));
+  const playing = !!S.playback, recording = !!S.recording;
+  const canMove = !pending && !playing && targets.length > 0 && targets.every(r => r.connected && !r.busy);
+  document.querySelectorAll('[data-jog]').forEach(b => b.disabled = !canMove);
+  $('#btnGoto').disabled = !canMove;
+  $('#btnConnAll').disabled = pending || S.robots.every(r => r.connected);
+  $('#btnDiscAll').disabled = pending || playing || S.robots.every(r => !r.connected) || S.robots.some(r => r.busy);
+  for (const r of S.robots) ui[r.name].btn.disabled = pending || playing || !!r.busy;
+  // Sequências
+  $('#btnRecStart').disabled = pending || playing;
+  $('#btnRecAdd').disabled = !canMove;
+  ['#btnRecUndo', '#btnRecSave', '#btnRecDiscard'].forEach(s => $(s).disabled = pending);
+  document.querySelectorAll('[data-seq=play]').forEach(b => b.disabled = pending || playing || recording);
+  document.querySelectorAll('[data-seq=del]').forEach(b => b.disabled = pending || playing);
+}
+
+function render() {
+  if (!built) build();
+  for (const r of S.robots) {
+    const u = ui[r.name];
+    u.chip.className = 'chip ' + (!r.connected ? '' : r.busy ? 'warn' : 'ok');
+    u.chip.textContent = !r.connected ? 'offline' : r.busy ? 'em movimento' : 'parado';
+    u.chip.title = r.busy || '';
+    u.btn.textContent = r.connected ? 'Desconectar' : 'Conectar';
+    u.err.textContent = r.error || '';
+    r.pose && r.pose.forEach((v, i) => u.pose[i].textContent = fmt(v));
+    r.joints && r.joints.forEach((v, i) => {
+      const [lo, hi] = S.limits.joints[i];
+      u.joints[i].val.textContent = fmt(v, 2) + '°';
+      u.joints[i].dot.style.left = Math.min(100, Math.max(0, (v - lo) / (hi - lo) * 100)) + '%';
+    });
+    // Sem conexão, os números antigos continuam na tela, mas apagados
+    [...u.pose, ...u.joints.map(j => j.val)].forEach(n => n.style.opacity = r.connected ? 1 : .4);
+  }
+  renderSeq();
+  renderTwinCheck();
+  refresh();
+
+  const log = $('#log');
+  log.replaceChildren(...[...S.log].reverse().map(e => el('div', { class: e.level },
+    el('span', { class: 't', text: e.time + ' ' }), el('span', { text: `${e.robot ? e.robot + ': ' : ''}${e.text}` }))));
+  const newest = S.log.length ? S.log[S.log.length - 1].id : 0;
+  if (lastLogId !== null) {
+    S.log.filter(e => e.id > lastLogId && e.level === 'error').forEach(e => toast(`${e.robot || ''}: ${e.text}`));
+  }
+  lastLogId = newest;
+}
+
+async function tick() {
+  try {
+    S = await api('/api/state');
+    $('#srv').className = 'chip ok';
+    $('#srv').textContent = 'servidor ok';
+    render();
+  } catch (e) {
+    $('#srv').className = 'chip err';
+    $('#srv').textContent = 'sem servidor';
+  }
+}
+
+// ---------- sequências (movimentos gravados) ----------
+const seq = (action, extra = {}) =>
+  post('/api/seq', { action, speed: Number($('#speed').value), robots: [...selected], ...extra });
+
+async function recordPoint() {
+  const d = await seq('add');
+  if (d) toast(`Ponto ${d.steps} gravado`, 'ok');
+}
+
+async function playSeq(name) {
+  const s = S.sequences.find(x => x.name === name);
+  const speed = Number($('#speed').value);
+  // Maior diferença entre onde o robô está e o 1º ponto: o 1º movimento vai direto até lá
+  const jumps = Object.entries(s.steps[0].joints).map(([n, j]) => {
+    const cur = S.robots.find(r => r.name === n)?.joints;
+    return cur ? `${n}: até ${Math.max(...j.map((v, i) => Math.abs(v - cur[i]))).toFixed(0)}°`
+               : `${n}: posição atual desconhecida`;
+  });
+  if (!confirm(`Executar "${name}" (${s.steps.length} pontos) a ${speed} mm/s?\n\n`
+    + `O 1º movimento vai direto ao ponto 1 (maior deslocamento de junta: ${jumps.join('; ')}).\n`
+    + `Só dá para parar entre um ponto e outro. Emergência: botão físico.`)) return;
+  await post('/api/seq', { action: 'play', name, speed });
+}
+
+function deleteSeq(name) {
+  if (confirm(`Excluir a sequência "${name}"?`)) post('/api/seq', { action: 'delete', name });
+}
+
+const fmtJoints = j => j.map(v => v.toFixed(1)).join(', ');
+const stepText = st => Object.entries(st.joints).map(([n, j]) => `${n}: ${fmtJoints(j)}`).join('  ·  ');
+let seqKey = '';
+
+function renderSeq() {
+  // Só refaz as listas quando algo mudou, senão os botões piscam e perdem o clique
+  const key = JSON.stringify([S.sequences, S.recording, S.playback]);
+  if (key === seqKey) return;
+  seqKey = key;
+
+  const rec = S.recording;
+  $('#recIdle').hidden = !!rec;
+  $('#recActive').hidden = !rec;
+  if (rec) {
+    $('#recTitle').textContent = `Gravando "${rec.name}" — ${rec.steps.length} ponto(s)`;
+    $('#recSteps').replaceChildren(...rec.steps.map(st => el('li', { text: stepText(st) })));
+  }
+  $('#seqList').replaceChildren(...(S.sequences.length
+    ? S.sequences.map(s => el('div', { class: 'seqrow' },
+        el('b', { text: s.name }),
+        el('span', { class: 'host', text: `${s.steps.length} ponto(s)` }),
+        el('button', { class: 'small primary', 'data-seq': 'play', text: 'Executar', onclick: () => playSeq(s.name) }),
+        el('button', { class: 'small', 'data-seq': 'del', text: 'Excluir', onclick: () => deleteSeq(s.name) })))
+    : [el('span', { class: 'host', text: 'nenhuma sequência salva' })]));
+  const pb = S.playback;
+  $('#playStatus').hidden = !pb;
+  if (pb) $('#playText').textContent = `Executando "${pb.name}" — ponto ${pb.step}/${pb.total}`;
+  refresh();   // os botões foram recriados: reaplica habilitado/desabilitado
+}
+
+$('#btnRecStart').addEventListener('click', () => seq('start', { name: $('#seqName').value.trim() }));
+$('#btnRecAdd').addEventListener('click', recordPoint);
+$('#btnRecUndo').addEventListener('click', () => seq('undo'));
+$('#btnRecSave').addEventListener('click', () => {
+  const name = S.recording.name;
+  if (S.sequences.some(s => s.name === name) && !confirm(`Já existe "${name}". Substituir?`)) return;
+  seq('save');
+});
+$('#btnRecDiscard').addEventListener('click', () => {
+  if (confirm('Descartar a gravação em andamento?')) seq('discard');
+});
+$('#btnPlayStop').addEventListener('click', () => seq('stop'));
+
+// ---------- controle de Xbox (Gamepad API) ----------
+// Enquanto LB/RB estiver apertado, o painel manda a deflexão dos analógicos ~20x por segundo. O servidor
+// (/api/jog) transforma isso em passos encadeados com raio de curva, então o robô se move de forma contínua,
+// sem parar entre os passos, com a velocidade suavizada. Soltou (ou o painel parou de mandar): o robô
+// para no último destino enviado, em menos de meio segundo.
+const PAD = { dead: 0.18, slow: 0.3, curve: 1.5 };
+
+// Cada entrada do controle comanda uma junta (0 = nenhuma); "inverter" troca o sentido.
+// Para cima e para a direita são positivos.
+const PAD_INPUTS = [
+  { id: 'lsx', label: 'Analógico esq. ←→', joint: 1 },
+  { id: 'lsy', label: 'Analógico esq. ↑↓', joint: 2 },
+  { id: 'rsy', label: 'Analógico dir. ↑↓', joint: 3 },
+  { id: 'rsx', label: 'Analógico dir. ←→', joint: 4 },
+  { id: 'trg', label: 'RT / LT', joint: 5 },
+  { id: 'dpx', label: 'D-pad ←→', joint: 6 },
+];
+const padCfg = (() => {
+  let saved = {};
+  try { saved = JSON.parse(store.get('padCfg') || '{}') || {}; } catch {}
+  return Object.fromEntries(PAD_INPUTS.map(i => {
+    const j = saved[i.id]?.joint;
+    return [i.id, { joint: Number.isInteger(j) && j >= 0 && j <= 6 ? j : i.joint, inv: !!saved[i.id]?.inv }];
+  }));
+})();
+
+let padOn = false, padMode = 'joint', padBlocked = false, gripClosed = false;
+let padPrev = [], padWantRecord = false, padWantHome = false;
+let padInFlight = false, padActive = false;   // padActive: pode haver um jog em andamento no servidor
+
+const round2 = v => Math.round(v * 100) / 100;
+const deadzone = v => Math.abs(v) < PAD.dead ? 0 : Math.sign(v) * (Math.abs(v) - PAD.dead) / (1 - PAD.dead);
+// Curva suave: perto do centro o movimento é mais fino, no fundo vai à velocidade cheia
+const shape = v => Math.sign(v) * Math.abs(v) ** PAD.curve;
+
+function padInput() {
+  const pad = [...(navigator.getGamepads?.() || [])].find(p => p && p.connected);
+  if (!pad) return null;
+  const live = document.hasFocus() && !document.hidden;   // aba sem foco = controle ignorado
+  const b = i => pad.buttons[i]?.pressed || false;
+  const v = i => pad.buttons[i]?.value || 0;
+  const a = i => pad.axes[i] || 0;
+  const val = { lsx: shape(deadzone(a(0))), lsy: -shape(deadzone(a(1))), rsx: shape(deadzone(a(2))),
+                rsy: -shape(deadzone(a(3))), trg: shape(deadzone(v(7) - v(6))), dpx: (b(15) ? 1 : 0) - (b(14) ? 1 : 0) };
+  return { pad, live, b, val, deadman: live && (b(4) || b(5)), slow: b(10) };   // LB/RB, L3
+}
+
+// Deflexão de cada eixo (-1 a 1) a partir do estado atual do controle. O servidor transforma em velocidade.
+function padDeflections(inp) {
+  const mult = inp.slow ? PAD.slow : 1;
+  const { val } = inp;
+  if (padMode === 'cart') {   // X frente, Y esquerda, Z sobe
+    return { mode: 'cart', vel: [val.lsy, -val.lsx, val.rsy].map(v => round2(v * mult)) };
+  }
+  const vel = [0, 0, 0, 0, 0, 0];   // juntas: cada entrada do controle soma na junta que ela comanda
+  for (const { id } of PAD_INPUTS) {
+    const cfg = padCfg[id];
+    if (cfg.joint > 0) vel[cfg.joint - 1] += val[id] * (cfg.inv ? -1 : 1) * mult;
+  }
+  return { mode: 'joints', vel: vel.map(v => round2(Math.max(-1, Math.min(1, v)))) };
+}
+
+// Uma mensagem de jog por vez (a mais nova vence no próximo ciclo)
+async function padSend(body) {
+  padInFlight = true;
+  try { await api('/api/jog', { robots: [...selected], ...body }); }
+  catch (e) { toast(`Controle: ${e.message}`); padBlocked = true; }   // só volta ao soltar o LB/RB
+  finally { padInFlight = false; }
+}
+
+function cycleTargets() {
+  const names = S.robots.map(r => r.name);
+  const sets = names.map(n => [n]).concat(names.length > 1 ? [names] : []);
+  const key = s => [...s].sort().join();
+  const i = sets.findIndex(s => key(s) === key(selected));
+  const next = sets[(i + 1) % sets.length];
+  selected.clear(); next.forEach(n => selected.add(n));
+  renderTargets(); refresh();
+}
+
+function toggleGrip() {
+  // Ainda não há comando de garra no PyServer.mod: é só o indicador na tela
+  gripClosed = !gripClosed;
+  const g = $('#gripState');
+  g.textContent = gripClosed ? 'fechada' : 'aberta';
+  g.className = 'chip' + (gripClosed ? ' ok' : '');
+}
+
+const padHome = () =>
+  post('/api/move', { robots: [...selected], mode: 'home', speed: Number($('#speed').value), wait: true });
+
+function padTick() {
+  const status = $('#padStatus');
+  if (!navigator.getGamepads) { status.textContent = 'este navegador não lê controles'; return; }
+  const inp = padInput();
+  if (!inp) {
+    padPrev = [];
+    if (padActive && !padInFlight) { padActive = false; padSend({ action: 'stop' }); }   // controle sumiu
+    status.textContent = !window.isSecureContext
+      ? 'sem acesso ao controle: abra por http://localhost:8080 no PC onde ele está ligado'
+      : 'nenhum controle detectado (aperte um botão dele)';
+    return;
+  }
+  if (padOn && inp.live && S) {
+    const hit = i => inp.b(i) && !padPrev[i];                // acabou de apertar
+    if (hit(3)) cycleTargets();                              // Y: troca de braço
+    if (hit(2)) toggleGrip();                                // X: garra
+    if (hit(8)) padMode = padMode === 'cart' ? 'joint' : 'cart';   // Back: modo
+    if (hit(0)) padWantRecord = true;                        // A: grava o ponto
+    if (hit(1) && inp.deadman) padWantHome = true;           // B: início (só com LB/RB)
+  }
+  padPrev = inp.pad.buttons.map(x => x.pressed);
+  if (!padOn) padWantRecord = padWantHome = false;
+
+  if (!inp.deadman) padBlocked = false;          // soltou o botão de segurança: o bloqueio some
+  status.textContent = !padOn ? 'desligado' : !inp.live ? 'clique na página para o controle valer'
+    : `${padMode === 'cart' ? 'cartesiano' : 'juntas'} · ${[...selected].join(' + ') || 'nenhum braço'} · `
+      + (padBlocked ? 'bloqueado: solte tudo' : inp.deadman ? 'MOVENDO' : 'segure LB ou RB');
+
+  // Jog contínuo: manda a deflexão enquanto o botão de segurança estiver apertado; ao soltar, manda "stop"
+  const holding = padOn && S && !S.playback && inp.live && inp.deadman && !padBlocked
+    && !padWantHome && !padWantRecord && !pending;
+  if (!padInFlight) {
+    if (holding) {
+      padActive = true;
+      padSend({ ...padDeflections(inp), speed: Number($('#speed').value) });
+    } else if (padActive) {
+      padActive = false;
+      padSend({ action: 'stop' });
+    }
+  }
+
+  // A (gravar ponto) e B (voltar ao início) esperam os braços selecionados pararem
+  const idle = S && S.robots.filter(r => selected.has(r.name)).every(r => !r.busy);
+  if (padOn && S && idle && !pending && !padInFlight) {
+    if (padWantHome) {
+      padWantHome = false;
+      if (inp.deadman) padHome();                // o botão de segurança precisa seguir apertado
+    } else if (padWantRecord) {
+      padWantRecord = false;
+      recordPoint();
+    }
+  }
+}
+
+function buildPadCfg() {
+  const root = $('#padCfg');
+  for (const input of PAD_INPUTS) {
+    const cfg = padCfg[input.id];
+    const sel = el('select', {}, el('option', { value: '0', text: '—' }),
+      ...[1, 2, 3, 4, 5, 6].map(j => el('option', { value: String(j), text: 'J' + j })));
+    sel.value = String(cfg.joint);
+    const inv = el('input', { type: 'checkbox' });
+    inv.checked = cfg.inv;
+    const save = () => {
+      cfg.joint = Number(sel.value); cfg.inv = inv.checked;
+      store.set('padCfg', JSON.stringify(padCfg));
+    };
+    sel.addEventListener('change', save);
+    inv.addEventListener('change', save);
+    root.append(el('label', {}, input.label + ':', sel, inv, 'inverter'));
+  }
+}
+
+$('#btnPad').addEventListener('click', () => {
+  padOn = !padOn;
+  padBlocked = false;
+  $('#btnPad').textContent = padOn ? 'Desligar' : 'Ligar';
+  $('#btnPad').classList.toggle('primary', padOn);
+});
+buildPadCfg();
+setInterval(padTick, 50);
+
+// ---------- gêmeo digital ----------
+// Entrada: só os 6 ângulos de junta (graus). Daqui sai a posição de cada elo (cinemática direta
+// do IRB 120, em mm, na base do robô: X à frente, Y à esquerda, Z para cima) e o desenho.
+// Com todas as juntas em 0 o TCP fica em (374, 0, 630), o mesmo valor que o RobotStudio informa.
+const IRB = { d1: 290, a2: 270, a3: 70, d4: 302, d6: 72 };
+const RAD = Math.PI / 180;
+
+const m4 = {
+  id: () => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+  mul(a, b) {
+    const r = new Array(16).fill(0);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++)
+      for (let k = 0; k < 4; k++) r[i * 4 + j] += a[i * 4 + k] * b[k * 4 + j];
+    return r;
+  },
+  tr: (x, y, z) => [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z, 0, 0, 0, 1],
+  rx: a => { const c = Math.cos(a), s = Math.sin(a); return [1, 0, 0, 0, 0, c, -s, 0, 0, s, c, 0, 0, 0, 0, 1]; },
+  ry: a => { const c = Math.cos(a), s = Math.sin(a); return [c, 0, s, 0, 0, 1, 0, 0, -s, 0, c, 0, 0, 0, 0, 1]; },
+  rz: a => { const c = Math.cos(a), s = Math.sin(a); return [c, -s, 0, 0, s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]; },
+  pt: (m, p) => [m[0] * p[0] + m[1] * p[1] + m[2] * p[2] + m[3],
+                 m[4] * p[0] + m[5] * p[1] + m[6] * p[2] + m[7],
+                 m[8] * p[0] + m[9] * p[1] + m[10] * p[2] + m[11]],
+};
+
+// Sistema de cada elo (T1 = coluna, T2 = braço, T3 = antebraço, T4 = eixo do punho, T5/T6 = flange)
+function irbFrames(q, base = m4.id()) {
+  const [q1, q2, q3, q4, q5, q6] = q.map(v => v * RAD);
+  const T1 = m4.mul(base, m4.rz(q1));
+  const T2 = m4.mul(m4.mul(T1, m4.tr(0, 0, IRB.d1)), m4.ry(q2));
+  const T3 = m4.mul(m4.mul(T2, m4.tr(0, 0, IRB.a2)), m4.ry(q3));
+  const T4 = m4.mul(m4.mul(T3, m4.tr(0, 0, IRB.a3)), m4.rx(q4));
+  const T5 = m4.mul(m4.mul(T4, m4.tr(IRB.d4, 0, 0)), m4.ry(q5));
+  const T6 = m4.mul(T5, m4.rx(q6));
+  return { T1, T2, T3, T4, T5, T6 };
+}
+const irbTcp = (q, base) => m4.pt(irbFrames(q, base).T6, [IRB.d6, 0, 0]);
+
+// Peças (caixas) de um braço: [sistema do elo, centro local, tamanho, cor]
+const TWC = { orange: [232, 96, 28], dark: [58, 66, 80], gray: [170, 178, 189], accent: [240, 190, 40] };
+function armParts(q, base, closed) {
+  const F = irbFrames(q, base);
+  const g = closed ? 4 : 22;   // abertura dos dedos (indicador da tecla X)
+  return [
+    [base, [0, 0, 25], [190, 190, 50], TWC.dark],
+    [F.T1, [0, 0, 165], [120, 110, 230], TWC.orange],
+    [F.T1, [0, 0, IRB.d1], [80, 150, 80], TWC.dark],
+    [F.T2, [0, 0, IRB.a2 / 2], [62, 76, IRB.a2], TWC.orange],
+    [F.T2, [0, 0, IRB.a2], [66, 112, 66], TWC.dark],
+    [F.T3, [0, 0, IRB.a3 / 2], [58, 64, IRB.a3], TWC.orange],
+    [F.T4, [IRB.d4 / 2, 0, 0], [IRB.d4, 52, 52], TWC.orange],
+    [F.T4, [IRB.d4, 0, 0], [54, 78, 54], TWC.dark],
+    [F.T6, [IRB.d6 / 2, 0, 0], [IRB.d6, 38, 38], TWC.gray],
+    [F.T6, [60, 0, 22], [18, 14, 10], TWC.accent],       // marca para enxergar o giro de J6
+    [F.T6, [IRB.d6 + 4, 0, 0], [8, 70, 30], TWC.dark],
+    [F.T6, [IRB.d6 + 28, g + 4, 0], [40, 8, 22], TWC.gray],
+    [F.T6, [IRB.d6 + 28, -(g + 4), 0], [40, 8, 22], TWC.gray],
+  ];
+}
+
+// --- câmera orbital ---
+const cam = { az: -50 * RAD, el: 28 * RAD, dist: 2300, tx: 0, ty: 0, tz: 280 };
+const camHome = { ...cam };
+const v3 = {
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+  norm(a) { const l = Math.hypot(...a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+};
+function camView() {
+  const ce = Math.cos(cam.el);
+  const pos = [cam.tx + cam.dist * ce * Math.cos(cam.az), cam.ty + cam.dist * ce * Math.sin(cam.az),
+               cam.tz + cam.dist * Math.sin(cam.el)];
+  const f = v3.norm(v3.sub([cam.tx, cam.ty, cam.tz], pos));
+  const r = v3.norm(v3.cross(f, [0, 0, 1]));
+  return { pos, f, r, u: v3.cross(r, f) };
+}
+
+const BOX_FACES = [[0, 2, 6, 4], [1, 3, 7, 5], [0, 1, 5, 4], [2, 3, 7, 6], [0, 1, 3, 2], [4, 5, 7, 6]];
+const LIGHT = v3.norm([0.4, -0.6, 0.7]);
+
+// Posição de cada base na cena (mm, graus). Padrão: braços lado a lado ao longo de Y.
+// Dá para arrastar a base de um braço no desenho (Shift + arrastar gira) ou digitar nos campos.
+const twinBase = {};
+const twinInputs = {};             // campos x, y, giro de cada braço (mantidos em sincronia com o arrasto)
+let twinHover = null, twinDrag = null;
+let twinGeo = null;                // câmera do último quadro: serve para achar o braço sob o ponteiro
+
+const defaultBase = (i, count) => [0, Math.round((i - (count - 1) / 2) * 900), 0];
+const saveTwinBase = () => store.set('twinBase', JSON.stringify(twinBase));
+
+function loadTwinBase(names) {
+  let saved = {};
+  try { saved = JSON.parse(store.get('twinBase') || '{}') || {}; } catch {}
+  names.forEach((n, i) => {
+    const s = saved[n];
+    twinBase[n] = Array.isArray(s) && s.length === 3 && s.every(Number.isFinite) ? s : defaultBase(i, names.length);
+  });
+}
+const baseMatrix = n => m4.mul(m4.tr(twinBase[n][0], twinBase[n][1], 0), m4.rz(twinBase[n][2] * RAD));
+
+function syncTwinInputs() {
+  for (const [n, inputs] of Object.entries(twinInputs)) {
+    inputs.forEach((inp, i) => { inp.value = String(Math.round(twinBase[n][i] * 10) / 10); });
+  }
+}
+
+function buildTwin() {
+  const names = S.robots.map(r => r.name);
+  loadTwinBase(names);
+  if (names.length > 2) cam.dist = camHome.dist = 2300 + 450 * (names.length - 2);   // mais braços, mais afastado
+  const root = $('#twinBase');
+  for (const n of names) {
+    const inputs = twinBase[n].map(v => el('input', { type: 'number', step: '50', value: String(v) }));
+    twinInputs[n] = inputs;
+    const save = () => {
+      inputs.forEach((inp, i) => { if (Number.isFinite(inp.valueAsNumber)) twinBase[n][i] = inp.valueAsNumber; });
+      saveTwinBase();
+    };
+    inputs.forEach(inp => inp.addEventListener('change', save));
+    const turn = deg => () => { twinBase[n][2] = (((twinBase[n][2] + deg) % 360) + 360) % 360; syncTwinInputs(); saveTwinBase(); };
+    root.append(el('div', {}, el('b', { text: n }),
+      el('label', {}, 'x', inputs[0]), el('label', {}, 'y', inputs[1]), el('label', {}, 'giro°', inputs[2]),
+      el('button', { class: 'small', text: '↺ 15°', onclick: turn(15) }),
+      el('button', { class: 'small', text: '↻ 15°', onclick: turn(-15) })));
+  }
+  $('#btnBaseReset').addEventListener('click', () => {
+    names.forEach((n, i) => { twinBase[n] = defaultBase(i, names.length); });
+    syncTwinInputs(); saveTwinBase();
+  });
+  $('#btnTwinReset').addEventListener('click', () => Object.assign(cam, camHome));
+  initTwinCamera();
+  requestAnimationFrame(twinFrame);
+}
+
+// Ponto do chão (z = 0) sob o ponteiro: raio da câmera até o plano
+function groundPoint(clientX, clientY) {
+  if (!twinGeo) return null;
+  const rect = $('#twin').getBoundingClientRect();
+  const { view, focal, w, h } = twinGeo;
+  const px = clientX - rect.left, py = clientY - rect.top;
+  const d = [0, 1, 2].map(i => view.f[i] + view.r[i] * (px - w / 2) / focal - view.u[i] * (py - h / 2) / focal);
+  if (d[2] >= -1e-6) return null;                 // apontando para o céu
+  const t = -view.pos[2] / d[2];
+  return [view.pos[0] + t * d[0], view.pos[1] + t * d[1]];
+}
+
+// Braço sob o ponteiro: o mais próximo (em pixels) do "esqueleto" dele, se estiver a menos de 36 px
+function twinPick(clientX, clientY) {
+  if (!twinGeo || !S) return null;
+  const rect = $('#twin').getBoundingClientRect();
+  const { view, focal, w, h } = twinGeo;
+  const px = clientX - rect.left, py = clientY - rect.top;
+  const proj = p => {
+    const d = v3.sub(p, view.pos), z = v3.dot(d, view.f);
+    return z < 50 ? null : [w / 2 + focal * v3.dot(d, view.r) / z, h / 2 - focal * v3.dot(d, view.u) / z];
+  };
+  const segDist = (a, b) => {
+    const abx = b[0] - a[0], aby = b[1] - a[1], len2 = abx * abx + aby * aby || 1;
+    const t = Math.max(0, Math.min(1, ((px - a[0]) * abx + (py - a[1]) * aby) / len2));
+    return Math.hypot(px - (a[0] + t * abx), py - (a[1] + t * aby));
+  };
+  let best = null, bestD = 36;
+  for (const r of S.robots) {
+    const B = baseMatrix(r.name), F = irbFrames(twinCur[r.name] || [0, 0, 0, 0, 0, 0], B);
+    const pts = [m4.pt(B, [0, 0, 0]), m4.pt(F.T2, [0, 0, 0]), m4.pt(F.T3, [0, 0, 0]), m4.pt(F.T4, [0, 0, 0]),
+                 m4.pt(F.T6, [IRB.d6, 0, 0])].map(proj);
+    for (let i = 0; i + 1 < pts.length; i++) {
+      if (!pts[i] || !pts[i + 1]) continue;
+      const d = segDist(pts[i], pts[i + 1]);
+      if (d < bestD) { bestD = d; best = r.name; }
+    }
+  }
+  return best;
+}
+
+function initTwinCamera() {
+  const canvas = $('#twin');
+  const pointers = new Map();
+  let pinch = 0;
+  canvas.addEventListener('pointerdown', e => {
+    canvas.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, e);
+    if (pointers.size > 1) { twinDrag = null; return; }
+    const name = twinPick(e.clientX, e.clientY), g = name && groundPoint(e.clientX, e.clientY);
+    if (name && g) {                                // pegou um braço: arrasta no chão (sem o salto do clique)
+      twinDrag = { name, dx: twinBase[name][0] - g[0], dy: twinBase[name][1] - g[1] };
+      twinHover = name;
+      canvas.style.cursor = 'move';
+    }
+  });
+  const end = e => {
+    pointers.delete(e.pointerId); pinch = 0;
+    if (twinDrag) { twinDrag = null; saveTwinBase(); }
+  };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+  canvas.addEventListener('pointermove', e => {
+    const prev = pointers.get(e.pointerId);
+    if (!prev) {                                    // sem botão apertado: só destaca o braço sob o ponteiro
+      twinHover = twinPick(e.clientX, e.clientY);
+      canvas.style.cursor = twinHover ? 'move' : 'grab';
+      return;
+    }
+    if (twinDrag && pointers.size === 1) {
+      const b = twinBase[twinDrag.name];
+      if (e.shiftKey) {
+        b[2] = (((b[2] - (e.clientX - prev.clientX) * 0.5) % 360) + 360) % 360;   // Shift: gira
+      } else {
+        const g = groundPoint(e.clientX, e.clientY);
+        if (g) {
+          const snap = v => Math.round(Math.max(-3000, Math.min(3000, v)) / 10) * 10;
+          b[0] = snap(g[0] + twinDrag.dx); b[1] = snap(g[1] + twinDrag.dy);
+        }
+      }
+      syncTwinInputs();
+      pointers.set(e.pointerId, e);
+      return;
+    }
+    if (pointers.size === 1) {
+      cam.az -= (e.clientX - prev.clientX) * 0.008;
+      cam.el = Math.min(85 * RAD, Math.max(3 * RAD, cam.el + (e.clientY - prev.clientY) * 0.008));
+    }
+    pointers.set(e.pointerId, e);
+    if (pointers.size === 2) {                      // pinça: zoom
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      if (pinch) cam.dist = Math.min(6000, Math.max(800, cam.dist * pinch / d));
+      pinch = d;
+    }
+  });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    cam.dist = Math.min(6000, Math.max(800, cam.dist * Math.exp(e.deltaY * 0.001)));
+  }, { passive: false });
+}
+
+const twinCur = {};            // ângulos mostrados: seguem a leitura de forma suave
+let twinLast = 0;
+
+function twinFrame(t) {
+  requestAnimationFrame(twinFrame);
+  const canvas = $('#twin');
+  if (!S || document.hidden || !canvas.clientWidth) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  const dt = Math.min(0.1, (t - twinLast) / 1000); twinLast = t;
+  const k = 1 - Math.exp(-dt / 0.15);
+  const view = camView();
+  const focal = h * 1.25;
+  twinGeo = { view, focal, w, h };
+  const proj = p => {
+    const d = v3.sub(p, view.pos), z = v3.dot(d, view.f);
+    return { x: w / 2 + focal * v3.dot(d, view.r) / z, y: h / 2 - focal * v3.dot(d, view.u) / z, z };
+  };
+  const css = getComputedStyle(document.documentElement);
+  const lineColor = css.getPropertyValue('--line').trim() || '#888';
+  const textColor = css.getPropertyValue('--muted').trim() || '#888';
+  const line3 = (a, b) => {
+    const p = proj(a), q = proj(b);
+    if (p.z < 50 || q.z < 50) return;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+  };
+
+  // Chão: grade e alcance (580 mm) de cada base
+  const xs = S.robots.map(r => twinBase[r.name][0]), ys = S.robots.map(r => twinBase[r.name][1]);
+  const [x0, x1] = [Math.min(...xs) - 800, Math.max(...xs) + 800];
+  const [y0, y1] = [Math.min(...ys) - 800, Math.max(...ys) + 800];
+  ctx.strokeStyle = lineColor; ctx.lineWidth = 1; ctx.globalAlpha = 0.7;
+  for (let x = Math.ceil(x0 / 200) * 200; x <= x1; x += 200) line3([x, y0, 0], [x, y1, 0]);
+  for (let y = Math.ceil(y0 / 200) * 200; y <= y1; y += 200) line3([x0, y, 0], [x1, y, 0]);
+  ctx.setLineDash([6, 6]);
+  for (const r of S.robots) {
+    const [bx, by] = twinBase[r.name];
+    for (let i = 0; i < 48; i++) {
+      const a = i / 48 * 2 * Math.PI, b = (i + 1) / 48 * 2 * Math.PI;
+      line3([bx + 580 * Math.cos(a), by + 580 * Math.sin(a), 0], [bx + 580 * Math.cos(b), by + 580 * Math.sin(b), 0]);
+    }
+  }
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+  if (twinHover && twinBase[twinHover]) {   // anel no chão: braço sob o ponteiro (azul) ou sendo arrastado (amarelo)
+    const [bx, by] = twinBase[twinHover];
+    ctx.strokeStyle = twinDrag ? '#f0b04a' : '#4c8dff'; ctx.lineWidth = 3;
+    for (let i = 0; i < 40; i++) {
+      const a = i / 40 * 2 * Math.PI, b = (i + 1) / 40 * 2 * Math.PI;
+      line3([bx + 190 * Math.cos(a), by + 190 * Math.sin(a), 2], [bx + 190 * Math.cos(b), by + 190 * Math.sin(b), 2]);
+    }
+  }
+
+  // Peças de todos os braços (e das sombras de destino) numa lista só, para ordenar por profundidade
+  const faces = [];
+  const addArm = (q, B, closed, alpha, tint) => {
+    for (const [T, c, s, color] of armParts(q, B, closed)) {
+      const M = m4.mul(T, m4.tr(...c));
+      const verts = Array.from({ length: 8 }, (_, i) =>
+        m4.pt(M, [(i & 1 ? 1 : -1) * s[0] / 2, (i & 2 ? 1 : -1) * s[1] / 2, (i & 4 ? 1 : -1) * s[2] / 2]));
+      for (const idx of BOX_FACES) {
+        const P = idx.map(i => verts[i]);
+        const center = [0, 1, 2].map(a => (P[0][a] + P[1][a] + P[2][a] + P[3][a]) / 4);
+        let n = v3.norm(v3.cross(v3.sub(P[1], P[0]), v3.sub(P[3], P[0])));
+        if (v3.dot(n, v3.sub(view.pos, center)) < 0) n = n.map(v => -v);   // vira para a câmera
+        const pp = P.map(proj);
+        if (pp.some(p => p.z < 50)) continue;
+        faces.push({ pp, z: v3.dot(v3.sub(center, view.pos), view.f), alpha,
+                     shade: 0.5 + 0.5 * Math.max(0, v3.dot(n, LIGHT)), color: tint || color, solid: !tint });
+      }
+    }
+  };
+  for (const r of S.robots) {
+    const goal = r.joints || [0, 0, 0, 0, 0, 0];
+    const cur = twinCur[r.name] || (twinCur[r.name] = goal.slice());
+    for (let i = 0; i < 6; i++) cur[i] += (goal[i] - cur[i]) * k;
+    const B = baseMatrix(r.name);
+    addArm(cur, B, gripClosed, r.connected ? 1 : 0.35);
+    if (r.busy && r.target) addArm(r.target, B, gripClosed, 0.28, [60, 140, 255]);   // destino
+  }
+  faces.sort((a, b) => b.z - a.z);
+  for (const f of faces) {
+    const [R, G, B] = f.color.map(c => Math.round(c * f.shade));
+    ctx.globalAlpha = f.alpha;
+    ctx.fillStyle = `rgb(${R},${G},${B})`;
+    ctx.beginPath();
+    f.pp.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+    ctx.closePath(); ctx.fill();
+    if (f.solid) { ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1; ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1;
+
+  // Eixos da base e nome de cada braço
+  ctx.font = '13px system-ui, sans-serif'; ctx.fillStyle = textColor; ctx.textAlign = 'center';
+  for (const r of S.robots) {
+    const B = baseMatrix(r.name), o = m4.pt(B, [0, 0, 0]);
+    [[[200, 0, 0], '#e5484d'], [[0, 200, 0], '#30a46c'], [[0, 0, 200], '#3e63dd']].forEach(([d, c]) => {
+      ctx.strokeStyle = c; ctx.lineWidth = 2; line3(o, m4.pt(B, d));
+    });
+    const p = proj(m4.pt(B, [0, 0, 720]));
+    if (p.z > 50) ctx.fillText(r.name + (r.connected ? '' : ' (offline)'), p.x, p.y);
+  }
+}
+
+// Conferência: o TCP calculado pelas juntas deve bater com o POS que o robô informa
+const twinRows = {};
+function renderTwinCheck() {
+  const root = $('#twinCheck');
+  for (const r of S.robots) {
+    const row = twinRows[r.name] || (twinRows[r.name] = root.appendChild(el('div')));
+    if (!r.connected || r.busy || !r.joints || !r.pose) {
+      row.className = ''; row.textContent = `${r.name}: aguardando leitura parada do robô`; continue;
+    }
+    const calc = irbTcp(r.joints);
+    const diff = Math.hypot(calc[0] - r.pose[0], calc[1] - r.pose[1], calc[2] - r.pose[2]);
+    row.className = diff < 3 ? 'tc-ok' : diff < 15 ? 'tc-warn' : 'tc-err';
+    row.textContent = `${r.name}: TCP calculado (${calc.map(v => v.toFixed(1)).join(', ')}) · lido pelo robô `
+      + `(${r.pose.slice(0, 3).map(v => v.toFixed(1)).join(', ')}) · diferença ${diff.toFixed(1)} mm`
+      + (diff < 3 ? '' : ' — o modelo não bate com o robô (no simulador a pose não acompanha as juntas)');
+  }
+}
+
+(async function loop() {
+  await tick();
+  setTimeout(loop, 400);
+})();
+</script>
+</body>
+</html>

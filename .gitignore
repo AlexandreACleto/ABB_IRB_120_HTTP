@@ -1,0 +1,21 @@
+# Ambiente Python local (a .venv deste projeto foi criada em outro caminho e não serve em outra máquina)
+.venv/
+__pycache__/
+*.pyc
+
+# Outro trabalho (otimização de trajetória), não faz parte deste projeto
+OPT2/
+OPT2.zip
+Entrega_OPT2.zip
+
+# Arquivos temporários do Word e do sistema
+~$*
+*.tmp
+Thumbs.db
+
+# Estado local dos robôs: sequências gravadas (posições de junta de cada robô e do simulador)
+sequencias.json
+sequencias_simulador.json
+
+# Versão antiga (2 robôs) do guia para iniciantes: a atual é Guia_para_iniciantes_3_robos.docx
+docs/Guia_para_iniciantes_bracos_robo.docx
