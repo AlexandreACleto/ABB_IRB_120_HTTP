@@ -154,6 +154,7 @@
   <section class="panel">
     <h2>Controle</h2>
     <div class="row"><span class="lbl">Mover</span><div id="targets" class="seg"></div></div>
+    <div id="selHint" class="note" style="margin: -4px 0 12px" hidden></div>
     <div class="row"><span class="lbl">Passo linear</span><div id="stepLin" class="seg"></div></div>
     <div class="row"><span class="lbl">Passo de junta</span><div id="stepAng" class="seg"></div></div>
     <div class="row">
@@ -485,6 +486,12 @@ function refresh() {
   const targets = S.robots.filter(r => selected.has(r.name));
   const playing = !!S.playback, recording = !!S.recording;
   const canMove = !pending && !playing && targets.length > 0 && targets.every(r => r.connected && !r.busy);
+  // Botões desligados porque há um braço desconectado marcado: explica em vez de deixar sem pista
+  const off = targets.filter(r => !r.connected).map(r => r.name);
+  $('#selHint').hidden = off.length === 0;
+  $('#selHint').textContent = off.length
+    ? `${off.join(', ')} ${off.length > 1 ? 'estão desconectados' : 'está desconectado'}: os botões de movimento só ligam quando todos os braços marcados em “Mover” estão conectados. Conecte ou desmarque.`
+    : '';
   document.querySelectorAll('[data-jog]').forEach(b => b.disabled = !canMove);
   $('#btnGoto').disabled = !canMove;
   $('#btnConnAll').disabled = pending || S.robots.every(r => r.connected);
@@ -548,7 +555,10 @@ const seq = (action, extra = {}) =>
 
 async function recordPoint() {
   const d = await seq('add');
-  if (d) toast(`Ponto ${d.steps} gravado`, 'ok');
+  if (!d) return;
+  // Braço desconectado fica de fora do ponto: avisa quais, para ninguém achar que foram gravados
+  const fora = d.ignorados?.length ? ` (sem ${d.ignorados.join(', ')}: desconectado)` : '';
+  toast(`Ponto ${d.steps} gravado${fora}`, 'ok');
 }
 
 async function playSeq(name) {
@@ -604,6 +614,7 @@ $('#btnRecStart').addEventListener('click', () => seq('start', { name: $('#seqNa
 $('#btnRecAdd').addEventListener('click', recordPoint);
 $('#btnRecUndo').addEventListener('click', () => seq('undo'));
 $('#btnRecSave').addEventListener('click', () => {
+  if (!S?.recording) return toast('Não há gravação em andamento.');
   const name = S.recording.name;
   if (S.sequences.some(s => s.name === name) && !confirm(`Já existe "${name}". Substituir?`)) return;
   seq('save');
@@ -676,9 +687,12 @@ function padDeflections(inp) {
 }
 
 // Uma mensagem de jog por vez (a mais nova vence no próximo ciclo)
+// Braços marcados que estão conectados: o controle ignora os desconectados em vez de recusar tudo
+const liveSel = () => S ? S.robots.filter(r => selected.has(r.name) && r.connected).map(r => r.name) : [...selected];
+
 async function padSend(body) {
   padInFlight = true;
-  try { await api('/api/jog', { robots: [...selected], ...body }); }
+  try { await api('/api/jog', { robots: liveSel(), ...body }); }
   catch (e) { toast(`Controle: ${e.message}`); padBlocked = true; }   // só volta ao soltar o LB/RB
   finally { padInFlight = false; }
 }
@@ -702,7 +716,7 @@ function toggleGrip() {
 }
 
 const padHome = () =>
-  post('/api/move', { robots: [...selected], mode: 'home', speed: Number($('#speed').value), wait: true });
+  post('/api/move', { robots: liveSel(), mode: 'home', speed: Number($('#speed').value), wait: true });
 
 function padTick() {
   const status = $('#padStatus');
@@ -729,12 +743,13 @@ function padTick() {
 
   if (!inp.deadman) padBlocked = false;          // soltou o botão de segurança: o bloqueio some
   status.textContent = !padOn ? 'desligado' : !inp.live ? 'clique na página para o controle valer'
-    : `${padMode === 'cart' ? 'cartesiano' : 'juntas'} · ${[...selected].join(' + ') || 'nenhum braço'} · `
+    : `${padMode === 'cart' ? 'cartesiano' : 'juntas'} · ${[...selected].join(' + ') || 'nenhum braço'}`
+      + (S && liveSel().length < selected.size ? ` (só os conectados: ${liveSel().join(' + ') || 'nenhum'})` : '') + ' · '
       + (padBlocked ? 'bloqueado: solte tudo' : inp.deadman ? 'MOVENDO' : 'segure LB ou RB');
 
   // Jog contínuo: manda a deflexão enquanto o botão de segurança estiver apertado; ao soltar, manda "stop"
   const holding = padOn && S && !S.playback && inp.live && inp.deadman && !padBlocked
-    && !padWantHome && !padWantRecord && !pending;
+    && !padWantHome && !padWantRecord && !pending && liveSel().length > 0;
   if (!padInFlight) {
     if (holding) {
       padActive = true;

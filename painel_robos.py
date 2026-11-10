@@ -22,6 +22,7 @@ import secrets
 import socket
 import threading
 import time
+import traceback
 import webbrowser
 from collections import deque
 from datetime import datetime
@@ -508,19 +509,32 @@ class Panel:
             print(f"Não consegui ler {self.seq_path}: {err}. Começando sem sequências.")
             return {}
 
-    def _save_sequences(self):
+    def _save_sequences(self, data=None):
+        """Grava o conjunto de sequências em disco (por padrão o atual) numa troca atômica."""
+        data = self.sequences if data is None else data
         tmp = self.seq_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self.sequences, indent=1, ensure_ascii=False), encoding="utf-8")
-        tmp.replace(self.seq_path)  # troca atômica: nunca fica um arquivo pela metade
+        tmp.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+        ultimo = None
+        for _ in range(6):  # antivírus, OneDrive ou um editor podem segurar o arquivo por instantes
+            try:
+                tmp.replace(self.seq_path)  # troca atômica: nunca fica um arquivo pela metade
+                return
+            except PermissionError as err:
+                ultimo = err
+                time.sleep(0.25)
+        tmp.unlink(missing_ok=True)
+        raise OSError(f"não consegui gravar {self.seq_path.name}: o arquivo está em uso por outro programa. "
+                      f"Feche-o (editor, OneDrive, antivírus) e tente de novo. ({ultimo})")
 
     def seq_action(self, body):
         """Operações de gravação/execução. Devolve um dict extra para a resposta."""
         action = body.get("action")
+        if action == "add":
+            # Fora do seq_lock: ler os robôs é lento e travaria a atualização da página (/api/state)
+            return self._rec_add(body.get("robots") or [], body.get("speed", 20))
         with self.seq_lock:
             if action == "start":
                 return self._rec_start(str(body.get("name", "")).strip())
-            if action == "add":
-                return self._rec_add(body.get("robots") or [], body.get("speed", 20))
             if action == "undo":
                 steps = self._need_recording()["steps"]
                 if steps:
@@ -534,9 +548,12 @@ class Panel:
             if action == "delete":
                 if self.playback:
                     raise Conflict("Há uma sequência em execução")
-                if self.sequences.pop(str(body.get("name")), None) is None:
+                nome = str(body.get("name"))
+                if nome not in self.sequences:
                     raise RobotError("Sequência não encontrada")
-                self._save_sequences()
+                restantes = {k: v for k, v in self.sequences.items() if k != nome}
+                self._save_sequences(restantes)  # primeiro no disco: se falhar, nada muda
+                self.sequences = restantes
                 return {}
             if action == "play":
                 return self._play_start(str(body.get("name")), body.get("speed", 20))
@@ -557,23 +574,38 @@ class Panel:
         return {}
 
     def _rec_add(self, names, speed):
-        rec = self._need_recording()
+        with self.seq_lock:
+            self._need_recording()
+        try:
+            speed = check_speed(float(speed))
+        except (TypeError, ValueError):
+            raise RobotError("Velocidade inválida") from None
         arms = self._names(names)
-        speed = check_speed(float(speed))
-        joints = {}
+        # Braço desconectado não derruba a gravação: fica de fora do ponto e o painel avisa quais ficaram
+        offline = [a.name for a in arms if not a.connected]
+        arms = [a for a in arms if a.connected]
+        if not arms:
+            raise Conflict("Nenhum dos braços escolhidos está conectado: conecte ou escolha outro braço")
         for arm in arms:
-            if not arm.connected:
-                raise Conflict(f"{arm.name} não está conectado")
             if arm.busy:
                 raise Conflict(f"{arm.name} ainda está em movimento")
-        for arm in arms:
-            with arm.lock:  # leitura fresca: o que vale é onde o robô está agora
+        joints = {}
+        for arm in arms:  # leitura fresca: o que vale é onde o robô está agora
+            if not arm.lock.acquire(timeout=3):
+                raise Conflict(f"{arm.name} está ocupado; tente de novo")
+            try:
                 if not (arm.connected and self._guarded(arm, self._refresh)):
                     raise Conflict(f"Não consegui ler as juntas de {arm.name}")
                 joints[arm.name] = list(arm.joints)
-        rec["steps"].append({"speed": speed, "joints": joints})
-        self.log("info", f"Ponto {len(rec['steps'])} gravado em '{rec['name']}'")
-        return {"steps": len(rec["steps"])}
+            finally:
+                arm.lock.release()
+        with self.seq_lock:
+            rec = self._need_recording()  # pode ter sido descartada enquanto líamos os robôs
+            rec["steps"].append({"speed": speed, "joints": joints})
+            total, nome = len(rec["steps"]), rec["name"]
+        self.log("info", f"Ponto {total} gravado em '{nome}'"
+                         + (f" (sem {', '.join(offline)}: desconectado)" if offline else ""))
+        return {"steps": total, "ignorados": offline}
 
     def _rec_save(self, name):
         rec = self._need_recording()
@@ -582,10 +614,11 @@ class Panel:
         name = name or rec["name"]
         if len(name) > 60:
             raise RobotError("Nome grande demais (máx. 60 caracteres)")
-        self.sequences[name] = {"steps": rec["steps"]}
-        self._save_sequences()
+        novas = {**self.sequences, name: {"steps": rec["steps"]}}
+        self._save_sequences(novas)  # primeiro no disco: se falhar, a gravação continua aberta e dá para tentar de novo
+        self.sequences = novas
         self.recording = None
-        self.log("ok", f"Sequência '{name}' salva ({len(self.sequences[name]['steps'])} pontos)")
+        self.log("ok", f"Sequência '{name}' salva ({len(novas[name]['steps'])} pontos)")
         return {}
 
     def _play_start(self, name, speed):
@@ -766,6 +799,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, {"error": str(err)})
         except Conflict as err:
             return self._send(409, {"error": str(err)})
+        except OSError as err:  # arquivo em uso, disco cheio, rede: avisa em vez de soltar a conexão
+            self.panel.log("error", f"Erro de arquivo ou rede: {err}")
+            return self._send(500, {"error": f"Erro de arquivo ou rede: {err}"})
+        except Exception as err:  # qualquer outro defeito também precisa de resposta
+            traceback.print_exc()
+            self.panel.log("error", f"Erro interno: {type(err).__name__}: {err}")
+            return self._send(500, {"error": f"Erro interno do painel: {type(err).__name__}: {err}"})
         self._send(200, {"ok": True, **extra})
 
 
