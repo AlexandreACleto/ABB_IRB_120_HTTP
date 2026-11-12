@@ -36,12 +36,37 @@ MODULE PyServer
     VAR num args{8};
     VAR num nargs;
 
+    ! TRUE enquanto os movimentos chegam encadeados (jog continuo, com raio de curva)
+    VAR bool streaming := FALSE;
+
+    ! Sem checagem de configuracao (o robo usa a solucao mais proxima da atual) e com o punho
+    ! autorizado a passar perto de singularidade. Evita o erro 50143 "Configuracao dos eixos do robo".
+    ! A checagem volta a ligar quando o programa e parado e reiniciado, por isso isto e repetido
+    ! antes de cada movimento com parada (e ao entrar no jog continuo), nao so no inicio.
+    PROC SetupMotion()
+        ConfJ \Off;
+        ConfL \Off;
+        SingArea \Wrist;
+    ENDPROC
+
+    ! Diferenca entre dois angulos em graus, de 0 a 180 (trata a volta de 360)
+    FUNC num AngDiff(num a, num b)
+        VAR num d;
+        d := a - b;
+        WHILE d > 180 DO
+            d := d - 360;
+        ENDWHILE
+        WHILE d < -180 DO
+            d := d + 360;
+        ENDWHILE
+        RETURN Abs(d);
+    ENDFUNC
+
     ! Nao se chama "main" para nao conflitar com o MainModule ja existente no robo.
     ! Para rodar: FlexPendant -> Program Editor -> Debug -> PP to Routine -> PyMain
     PROC PyMain()
-        ! Sem checagem de configuracao: o robo usa a solucao mais proxima da atual
-        ConfJ \Off;
-        ConfL \Off;
+        streaming := FALSE;
+        SetupMotion;
         StartServer;
         WHILE TRUE DO
             rx_msg := "";
@@ -205,10 +230,16 @@ MODULE PyServer
         target.robax := [args{1}, args{2}, args{3}, args{4}, args{5}, args{6}];
         IF nargs = 8 AND args{8} > 0 THEN
             ! Jog continuo: com raio de curva o robo emenda no proximo passo sem parar
+            IF NOT streaming THEN
+                SetupMotion;
+                streaming := TRUE;
+            ENDIF
             spd := MakeJogSpeed(args{7});
             zd := MakeZone(args{8});
             MoveAbsJ target, spd, zd, tool0;
         ELSE
+            SetupMotion;
+            streaming := FALSE;
             MoveAbsJ target, MakeSpeed(args{7}), fine, tool0;
         ENDIF
         Reply "OK DONE";
@@ -219,6 +250,9 @@ MODULE PyServer
         VAR jointtarget reach_check;
         VAR speeddata spd;
         VAR zonedata zd;
+        VAR num cur_x;
+        VAR num cur_y;
+        VAR num cur_z;
         IF nargs <> 7 AND nargs <> 8 THEN
             Reply "ERR ARGS";
             RETURN;
@@ -232,15 +266,29 @@ MODULE PyServer
         ! Parte da posicao atual para herdar configuracao e eixos externos
         target := CRobT(\Tool:=tool0 \WObj:=wobj0);
         target.trans := [args{1}, args{2}, args{3}];
-        target.rot := OrientZYX(args{6}, args{5}, args{4});
+        ! Se a orientacao pedida e a atual (dentro de 0,3 grau), nao reorienta. Os angulos chegam
+        ! arredondados a 0,1 grau e, perto de uma singularidade do punho, esse arredondamento viraria
+        ! uma rotacao grande dos eixos 4 a 6 (erro 50143, eixo 5).
+        cur_x := EulerZYX(\X, target.rot);
+        cur_y := EulerZYX(\Y, target.rot);
+        cur_z := EulerZYX(\Z, target.rot);
+        IF AngDiff(args{4}, cur_x) > 0.3 OR AngDiff(args{5}, cur_y) > 0.3 OR AngDiff(args{6}, cur_z) > 0.3 THEN
+            target.rot := OrientZYX(args{6}, args{5}, args{4});
+        ENDIF
         ! CalcJointT gera ERR_ROBLIMIT se o ponto estiver fora do alcance
         reach_check := CalcJointT(target, tool0 \WObj:=wobj0);
         IF nargs = 8 AND args{8} > 0 THEN
             ! Jog continuo: com raio de curva o robo emenda no proximo passo sem parar
+            IF NOT streaming THEN
+                SetupMotion;
+                streaming := TRUE;
+            ENDIF
             spd := MakeJogSpeed(args{7});
             zd := MakeZone(args{8});
             MoveL target, spd, zd, tool0 \WObj:=wobj0;
         ELSE
+            SetupMotion;
+            streaming := FALSE;
             MoveL target, MakeSpeed(args{7}), fine, tool0 \WObj:=wobj0;
         ENDIF
         Reply "OK DONE";

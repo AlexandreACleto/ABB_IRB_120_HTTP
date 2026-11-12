@@ -220,6 +220,7 @@ centro o movimento é mais fino).
 | `ping` ok, porta 1025 recusada (`WinError 10061`) | `PyMain` não está rodando, ou `SERVER_IP` errado | Passos 11 e 12; depois de reiniciar o controlador é preciso rodar o `PyMain` de novo |
 | Robô não se move | Parada de proteção, motores desligados, modo Manual sem enable device | Rearmar, ligar motores, segurar o enable device |
 | `ERR JOINT_LIMIT` / `ERR WORKSPACE` / `ERR UNREACHABLE` | Destino fora dos limites | Escolha um destino dentro da área de trabalho |
+| FlexPendant: erro **50143** "Configuração dos eixos do robô" (eixo `rob1_5`) | Movimento linear com a checagem de configuração ligada, ou o punho (J5) perto de singularidade pedindo giro maior que 90° | Recarregue o `PyServer.mod` atual (desliga `ConfL` e liga `SingArea \Wrist` antes de cada movimento). Se persistir, afaste o **J5 de 0°** com o botão da junta antes de mover em X, Y, Z. Para seguir, confirme o erro e, em modo Manual, repita a partida |
 | Controle de Xbox "não detectado" | O navegador só expõe o controle após interação | Clique na página e aperte um botão; abra por `localhost` |
 | Gêmeo digital com "diferença" alta no TCP | Sentido de alguma junta do modelo difere do robô | Com o robô parado, anote qual junta mexeu e a diferença; só vale com o robô real (no simulador a pose não acompanha as juntas) |
 | `.venv` não abre | Foi criada em outro caminho (`F:\Documentos\...`) | Use o Python do sistema; o painel só usa a biblioteca padrão |
